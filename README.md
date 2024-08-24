@@ -7,7 +7,7 @@
 ## How do you set up this thing? well:
  * 1 Make a .h(header) file in your project.
  * 2 Add the code in the file.
- * 3 Maksee sure to include your file with "#include "header_file_name.h"".
+ * 3 Make sure to include your file with "#include "header_file_name.h"".
  * 4 You are done, now read how to use it.
 ## How do you use this now?:
  * 1 Use "write" to write process memory, example:
