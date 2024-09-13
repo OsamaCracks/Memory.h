@@ -13,12 +13,13 @@
  * 1 Use "write" to write process memory, example:
  > write<uintptr_t>(handle, adress, $value, sizeof(value));
  * 2 Use "read" to read process memory, example:
- > read<uintptr_t)(handle, adress, &value, sizeof(value))
+ > read<uintptr_t>(handle, adress, &value, sizeof(value));
  * 3 Use "GetHandle" to get a handle to the process, example:
- > HANDLE handle = GetHandle("ProcessName")
+ > HANDLE handle = GetHandle("ProcessName");
+ * Remember you can use <int> or other methods(depends on what you are doing)
 
 -  [x] Add Reading.
 -  [x] Add Writing.
 -  [X] Add GetHandle.
-- [ ] Add GetModuleAddress.
+- [x] Add GetModuleAddress.
 - [ ] Add A Simple Bypass.
