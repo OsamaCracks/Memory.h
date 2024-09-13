@@ -15,7 +15,7 @@
  * 2 Use "read" to read process memory, example:
  > read<uintptr_t>(handle, adress, &value, sizeof(value));
  * 3 Use "GetHandle" to get a handle to the process, example:
- > HANDLE handle = GetHandle("ProcessName");
+ > HANDLE handle = GetHandle("ProcessName.exe");
  * Remember you can use <int> or other methods(depends on what you are doing)
 
 -  [x] Add Reading.
