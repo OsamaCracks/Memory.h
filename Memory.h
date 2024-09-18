@@ -3,11 +3,24 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <cstdint>
-#include <string_view>
+#include <string>
 #include <iostream>
 
-// Get handle to process by process name
-HANDLE GetHandle(const std::string_view processName) noexcept
+// Global handle for process (assumed declared somewhere)
+extern HANDLE gHandle;
+
+// Helper function to convert wide string (WCHAR) to std::string
+std::string WideStringToString(const std::wstring& wstr)
+{
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string str(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &str[0], size_needed, NULL, NULL);
+    return str;
+}
+
+// Get handle to process by process name (without .exe extension)
+HANDLE GetHandle(const std::string& processName) noexcept
 {
     ::PROCESSENTRY32 entry = { };
     entry.dwSize = sizeof(::PROCESSENTRY32);
@@ -21,12 +34,13 @@ HANDLE GetHandle(const std::string_view processName) noexcept
     HANDLE processHandle = nullptr;
     while (::Process32Next(snapShot, &entry))
     {
-        if (!processName.compare(entry.szExeFile))
+        std::string exeFile = WideStringToString(entry.szExeFile);  // Convert wide char to std::string
+        if (exeFile.substr(0, exeFile.size() - 4) == processName)  // Compare without ".exe"
         {
             DWORD processId = entry.th32ProcessID;
             processHandle = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
 
-            if (processHandle == NULL) {
+            if (processHandle == nullptr) {
                 std::cerr << "[-] Failed to open process: " << processName << std::endl;
             }
             else {
@@ -41,13 +55,12 @@ HANDLE GetHandle(const std::string_view processName) noexcept
 }
 
 // Returns the base address of a module by name
-std::uintptr_t GetModuleAddress(HANDLE processHandle, DWORD processId, const std::string_view moduleName) noexcept
+std::uintptr_t GetModuleAddress(HANDLE processHandle, DWORD processId, const std::string& moduleName) noexcept
 {
     ::MODULEENTRY32 entry = { };
     entry.dwSize = sizeof(::MODULEENTRY32);
 
     HANDLE snapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId);
-
     if (snapShot == INVALID_HANDLE_VALUE) {
         std::cerr << "[-] Failed to create snapshot of modules" << std::endl;
         return 0;
@@ -56,7 +69,8 @@ std::uintptr_t GetModuleAddress(HANDLE processHandle, DWORD processId, const std
     std::uintptr_t moduleBase = 0;
     while (::Module32Next(snapShot, &entry))
     {
-        if (!moduleName.compare(entry.szModule))
+        std::string modFile = WideStringToString(entry.szModule);  // Convert wide char to std::string
+        if (modFile == moduleName)  // Direct comparison using std::string
         {
             moduleBase = reinterpret_cast<std::uintptr_t>(entry.modBaseAddr);
             std::cout << "[+] Module '" << moduleName << "' found at address: " << std::hex << moduleBase << std::endl;
@@ -68,22 +82,22 @@ std::uintptr_t GetModuleAddress(HANDLE processHandle, DWORD processId, const std
     return moduleBase;
 }
 
-// Read process memory template function
+// Template function to read process memory
 template <typename T>
-T read(HANDLE processHandle, const std::uintptr_t address) noexcept
+T Read(std::uintptr_t address) noexcept
 {
-    T value = { };
-    if (!::ReadProcessMemory(processHandle, reinterpret_cast<const void*>(address), &value, sizeof(T), NULL)) {
+    T value;
+    if (!::ReadProcessMemory(gHandle, reinterpret_cast<LPCVOID>(address), &value, sizeof(T), nullptr)) {
         std::cerr << "[-] Failed to read memory at address: " << std::hex << address << std::endl;
     }
     return value;
 }
 
-// Write process memory template function
+// Template function to write process memory
 template <typename T>
-bool write(HANDLE processHandle, const std::uintptr_t address, const T& value) noexcept
+bool Write(std::uintptr_t address, T value) noexcept
 {
-    if (!::WriteProcessMemory(processHandle, reinterpret_cast<void*>(address), &value, sizeof(T), NULL)) {
+    if (!::WriteProcessMemory(gHandle, reinterpret_cast<LPVOID>(address), &value, sizeof(T), nullptr)) {
         std::cerr << "[-] Failed to write memory at address: " << std::hex << address << std::endl;
         return false;
     }
