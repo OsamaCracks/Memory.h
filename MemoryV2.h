@@ -14,7 +14,7 @@ private:
     bool debug = false;
 
 public:
-    Memory(const std::string_view processName, bool debugMode = false) noexcept 
+    GetHandle(const std::string_view processName, bool debugMode = false) noexcept 
         : debug(debugMode)
     {
         ::PROCESSENTRY32 entry = {};
@@ -40,7 +40,7 @@ public:
         ::CloseHandle(snapShot);
     }
 
-    ~Memory()
+    ~GetHandle()
     {
         if (processHandle) {
             ::CloseHandle(processHandle);
