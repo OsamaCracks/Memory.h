@@ -6,7 +6,7 @@
 #include <string_view>
 #include <iostream>
 
-class Memory
+namespace Memory
 {
 private:
     std::uintptr_t processId = 0;
