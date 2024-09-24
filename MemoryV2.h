@@ -10,27 +10,39 @@ class Memory
 {
 private:
     std::uintptr_t processId = 0;
-    void* processHandle = nullptr;
+    HANDLE processHandle = nullptr;  // Updated to HANDLE instead of void*
     bool debug = false;
 
 public:
-    GetHandle(const std::string_view processName, bool debugMode = false) noexcept 
-        : debug(debugMode)
+    // Default constructor (process handle not initialized)
+    Memory() noexcept = default;
+
+    // Destructor: Closes the process handle
+    ~Memory()
     {
-        ::PROCESSENTRY32 entry = {};
+        if (processHandle) {
+            ::CloseHandle(processHandle);
+        }
+    }
+
+    // Static method to return a HANDLE directly
+    static HANDLE GetHandle(const std::string_view processName, bool debugMode = false) noexcept
+    {
+        PROCESSENTRY32 entry = {};
         entry.dwSize = sizeof(entry);
 
         const auto snapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (snapShot == INVALID_HANDLE_VALUE) {
-            if (debug) std::cerr << "Failed to create process snapshot.\n";
-            return;
+            if (debugMode) std::cerr << "Failed to create process snapshot.\n";
+            return nullptr;
         }
 
+        HANDLE processHandle = nullptr;
         while (::Process32Next(snapShot, &entry)) {
             if (processName == entry.szExeFile) {
-                processId = entry.th32ProcessID;
+                DWORD processId = entry.th32ProcessID;
                 processHandle = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-                if (!processHandle && debug) {
+                if (!processHandle && debugMode) {
                     std::cerr << "Failed to open process handle.\n";
                 }
                 break;
@@ -38,38 +50,13 @@ public:
         }
 
         ::CloseHandle(snapShot);
+        return processHandle;
     }
 
-    ~GetHandle()
+    // Function to set the internal handle after calling GetHandle()
+    void SetHandle(HANDLE handle) noexcept
     {
-        if (processHandle) {
-            ::CloseHandle(processHandle);
-        }
-    }
-
-    // Returns the base address of a module by name
-    std::uintptr_t GetModuleAddress(const std::string_view moduleName) const noexcept
-    {
-        ::MODULEENTRY32 entry = {};
-        entry.dwSize = sizeof(entry);
-
-        const auto snapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, processId);
-        if (snapShot == INVALID_HANDLE_VALUE) {
-            if (debug) std::cerr << "Failed to create module snapshot.\n";
-            return 0;
-        }
-
-        std::uintptr_t result = 0;
-
-        while (::Module32Next(snapShot, &entry)) {
-            if (moduleName == entry.szModule) {
-                result = reinterpret_cast<std::uintptr_t>(entry.modBaseAddr);
-                break;
-            }
-        }
-
-        ::CloseHandle(snapShot);
-        return result;
+        processHandle = handle;
     }
 
     // Read process memory
