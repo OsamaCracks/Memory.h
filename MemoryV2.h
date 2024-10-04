@@ -1,81 +1,76 @@
-#pragma once
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <windows.h>
 #include <TlHelp32.h>
-#include <cstdint>
-#include <string_view>
+#include <cstdlib>
+#include <tchar.h>
 #include <iostream>
 
-namespace Memory
-{
-private:
-    std::uintptr_t processId = 0;
-    HANDLE processHandle = nullptr;  // Updated to HANDLE instead of void*
-    bool debug = false;
-
-public:
-    // Default constructor (process handle not initialized)
-    Memory() noexcept = default;
-
-    // Destructor: Closes the process handle
-    ~Memory()
-    {
-        if (processHandle) {
-            ::CloseHandle(processHandle);
-        }
-    }
-
-    // Static method to return a HANDLE directly
-    static HANDLE GetHandle(const std::string_view processName, bool debugMode = false) noexcept
-    {
-        PROCESSENTRY32 entry = {};
-        entry.dwSize = sizeof(entry);
-
-        const auto snapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapShot == INVALID_HANDLE_VALUE) {
-            if (debugMode) std::cerr << "Failed to create process snapshot.\n";
-            return nullptr;
+namespace memory {
+    HANDLE GetHandle(const TCHAR* processName) {
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnapshot == INVALID_HANDLE_VALUE) {
+            return NULL;
         }
 
-        HANDLE processHandle = nullptr;
-        while (::Process32Next(snapShot, &entry)) {
-            if (processName == entry.szExeFile) {
-                DWORD processId = entry.th32ProcessID;
-                processHandle = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-                if (!processHandle && debugMode) {
-                    std::cerr << "Failed to open process handle.\n";
-                }
-                break;
+        PROCESSENTRY32 pe32;
+        pe32.dwSize = sizeof(PROCESSENTRY32);
+        if (!Process32First(hSnapshot, &pe32)) {
+            CloseHandle(hSnapshot);
+            return NULL;
+        }
+
+        do {
+            if (_tcsicmp(pe32.szExeFile, processName) == 0) {
+                HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+                CloseHandle(hSnapshot);
+                return hProcess;
             }
+        } while (Process32Next(hSnapshot, &pe32));
+
+        CloseHandle(hSnapshot);
+        return NULL;
+    }
+
+    uintptr_t GetModuleBaseAddress(DWORD processId, const wchar_t* ModuleTarget) {
+        HANDLE snapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId);
+        if (snapshotHandle == INVALID_HANDLE_VALUE) {
+            return 0;
         }
 
-        ::CloseHandle(snapShot);
-        return processHandle;
+        MODULEENTRY32W moduleEntry = { };
+        moduleEntry.dwSize = sizeof(MODULEENTRY32W);
+        if (Module32FirstW(snapshotHandle, &moduleEntry)) {
+            do {
+                if (_wcsicmp(moduleEntry.szModule, ModuleTarget) == 0) {
+                    uintptr_t baseAddr = reinterpret_cast<uintptr_t>(moduleEntry.modBaseAddr);
+                    CloseHandle(snapshotHandle);
+                    return baseAddr;
+                }
+            } while (Module32NextW(snapshotHandle, &moduleEntry));
+        }
+
+        CloseHandle(snapshotHandle);
+        return 0;
     }
 
-    // Function to set the internal handle after calling GetHandle()
-    void SetHandle(HANDLE handle) noexcept
-    {
-        processHandle = handle;
-    }
-
-    // Read process memory
     template <typename T>
-    T Read(const std::uintptr_t address) const noexcept
-    {
-        T value{};
-        if (!::ReadProcessMemory(processHandle, reinterpret_cast<const void*>(address), &value, sizeof(T), nullptr)) {
-            if (debug) std::cerr << "Failed to read memory at address: " << address << '\n';
-        }
-        return value;
+    bool Write(HANDLE handle, uintptr_t address, const T& value) noexcept {
+        SIZE_T bytesWritten;
+        return WriteProcessMemory(handle,
+            reinterpret_cast<LPVOID>(address),
+            &value,
+            sizeof(T),
+            &bytesWritten)
+            && bytesWritten == sizeof(T);
     }
 
-    // Write process memory
     template <typename T>
-    void Write(const std::uintptr_t address, const T& value) const noexcept
-    {
-        if (!::WriteProcessMemory(processHandle, reinterpret_cast<void*>(address), &value, sizeof(T), nullptr)) {
-            if (debug) std::cerr << "Failed to write memory at address: " << address << '\n';
-        }
+    bool Read(HANDLE handle, uintptr_t address, T& value) {  
+        SIZE_T bytesRead;
+        return ReadProcessMemory(handle,
+            reinterpret_cast<LPCVOID>(address),
+            &value,
+            sizeof(T),
+            &bytesRead)
+            && bytesRead == sizeof(T);
     }
-};
+}
