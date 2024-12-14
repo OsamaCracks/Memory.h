@@ -15,13 +15,11 @@
   --------------------------------------------------------------------
  * 2 Use "read" to read process memory, example:
  > int value = read<uintptr_t>(readAddress);
-> You can use : float, double, int etc... 
+> - You can use : float, double, int etc... 
   --------------------------------------------------------------------
  * 3 Use "GetHandle" to get a handle to the process, example:
  > HANDLE handle = GetHandle("ProcessName.exe");
   --------------------------------------------------------------------
- * Remember you can use other methods(depends on what you are doing)
-  ------------------------------------------------------------------
  * 4 GetModuleAddress();
  > GetModuleAddress(processName);
  --------------------------------------------------------------------
