@@ -11,10 +11,11 @@
  * 4 You are done, now read how to use it.
 ## How do you use this now?:
  * 1 Use "write" to write process memory, example:
- > write<uintptr_t>(handle, address, value);
+ > Write<uintptr_t>(address, WriteValue);
   --------------------------------------------------------------------
  * 2 Use "read" to read process memory, example:
- > read<uintptr_t>(handle, address, value);
+ > int value = read<uintptr_t>(readAddress);
+> You can use : float, double, int etc... 
   --------------------------------------------------------------------
  * 3 Use "GetHandle" to get a handle to the process, example:
  > HANDLE handle = GetHandle("ProcessName.exe");
@@ -22,7 +23,7 @@
  * Remember you can use other methods(depends on what you are doing)
   ------------------------------------------------------------------
  * 4 GetModuleAddress();
- > GetModuleAddress(handle, processid, modulename);
+ > GetModuleAddress(processName);
  --------------------------------------------------------------------
 
  --------------------------------------------------------------------
@@ -30,4 +31,4 @@
 -  [x] Add Writing.
 -  [X] Add GetHandle.
 - [x] Add GetModuleAddress.
-- [ ] Add A Simple Bypass. [soon enough :) ]
+- [x] Add A Simple Bypass.
